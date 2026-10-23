@@ -67,9 +67,9 @@ No alias map is saved. Query strings do not affect endpoint identity. Aliases ar
 one export and should not be compared across files. The program never makes network requests.
 
 Defaults are 64 MiB input and 100,000 entries/pages. Change them explicitly with `--max-bytes N`
-and `--max-entries N`. JSON parsing holds the capture in memory. Malformed JSON, duplicate
-The accepted upper bounds are 512 MiB and 1,000,000 entries/pages, respectively.
-keys, invalid dates, non-finite/oversized numbers, invalid page references and unsupported URL
+and `--max-entries N`. The accepted upper bounds are 512 MiB and 1,000,000 entries/pages,
+respectively. JSON parsing holds the capture in memory. Malformed JSON, duplicate keys,
+invalid dates, non-finite/oversized numbers, invalid page references and unsupported URL
 schemes are rejected. Capture spans above 366 days are refused. HTTP(S) and WS(S) URLs are supported.
 
 ## Limits and alternatives
