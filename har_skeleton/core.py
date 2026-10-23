@@ -12,6 +12,7 @@ from . import __version__
 
 MAX_BYTES = 64 * 1024 * 1024
 MAX_ENTRIES = 100_000
+MAX_ALLOWED_BYTES = 512 * 1024 * 1024
 EPOCH = datetime(2000, 1, 1, tzinfo=timezone.utc)
 METHODS = frozenset(
     {"GET", "POST", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "CONNECT", "TRACE"}
@@ -103,8 +104,8 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict:
 
 def load_har(path: str | Path, *, max_bytes: int = MAX_BYTES) -> dict:
     """Bound the bytes read, reject duplicate keys, NaN, and excessively nested input."""
-    if max_bytes < 1:
-        raise HarError("max_bytes must be positive")
+    if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_ALLOWED_BYTES:
+        raise HarError("max_bytes must be between 1 and 536870912")
     try:
         with Path(path).open("rb") as stream:
             data = stream.read(max_bytes + 1)
@@ -116,14 +117,16 @@ def load_har(path: str | Path, *, max_bytes: int = MAX_BYTES) -> dict:
             parse_constant=lambda _: (_ for _ in ()).throw(HarError("non-finite JSON number")),
         )
         return _object(document, "document")
-    except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+    except HarError:
+        raise
+    except (UnicodeError, ValueError, RecursionError) as exc:
         raise HarError("input must be valid UTF-8 JSON within the nesting limit") from exc
 
 
 def build_skeleton(document: dict, *, max_entries: int = MAX_ENTRIES) -> tuple[dict, dict]:
     """Return a newly built HAR and counts. Raw URLs and alias mappings are never returned."""
-    if max_entries < 1:
-        raise HarError("max_entries must be positive")
+    if type(max_entries) is not int or not 1 <= max_entries <= 1_000_000:
+        raise HarError("max_entries must be between 1 and 1000000")
     log = _object(_object(document, "document").get("log"), "log")
     entries, pages = log.get("entries"), log.get("pages", [])
     if not isinstance(entries, list) or not isinstance(pages, list):
@@ -155,7 +158,7 @@ def build_skeleton(document: dict, *, max_entries: int = MAX_ENTRIES) -> tuple[d
                 "startedDateTime": shifted(date),
                 "title": f"Page {index}",
                 "pageTimings": {
-                    key: _number(timings[key], f"pageTimings.{key}")
+                    key: _phase(timings, key)
                     for key in ("onContentLoad", "onLoad")
                     if key in timings
                 },
@@ -179,7 +182,9 @@ def build_skeleton(document: dict, *, max_entries: int = MAX_ENTRIES) -> tuple[d
             origin = (
                 url.scheme,
                 url.hostname.lower(),
-                url.port or (443 if url.scheme in {"https", "wss"} else 80),
+                url.port
+                if url.port is not None
+                else (443 if url.scheme in {"https", "wss"} else 80),
             )
         except ValueError as exc:
             raise HarError("request.url must be a supported absolute URL") from exc

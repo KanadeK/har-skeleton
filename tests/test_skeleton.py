@@ -89,6 +89,18 @@ class SkeletonTests(unittest.TestCase):
         self.assertIn("host-2.invalid", urls[3])
         self.assertEqual(counts["endpoints"], 3)
 
+    def test_explicit_default_ports_match_but_port_zero_is_distinct(self):
+        first = self.raw["log"]["entries"][0]
+        for port in [443, 0]:
+            entry = copy.deepcopy(first)
+            entry["request"]["url"] = f"https://demo.invalid:{port}/private-user"
+            self.raw["log"]["entries"].append(entry)
+        output, counts = build_skeleton(self.raw)
+        urls = [entry["request"]["url"] for entry in output["log"]["entries"]]
+        self.assertEqual(urls[0], urls[1])
+        self.assertNotEqual(urls[0], urls[2])
+        self.assertEqual(counts["origins"], 2)
+
     def test_timestamps_pages_and_relative_offsets(self):
         log = self.raw["log"]
         log["pages"] = [
@@ -280,6 +292,21 @@ class FileAndCliTests(unittest.TestCase):
             load_har(self.source, max_bytes=1)
         self.assertEqual(self.run_cli(self.source, self.output, "--max-bytes", "1").returncode, 2)
         self.assertFalse(self.output.exists())
+
+    def test_huge_json_integer_has_controlled_error(self):
+        self.source.write_bytes(b'{"PRIVATE":' + b"9" * 5000 + b"}")
+        result = self.run_cli(self.source, self.output)
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertNotIn("PRIVATE", result.stderr)
+        self.assertFalse(self.output.exists())
+
+    def test_oversized_read_budget_is_rejected_before_open(self):
+        with self.assertRaises(HarError):
+            load_har(self.source, max_bytes=2**63)
+        result = self.run_cli(self.source, self.output, "--max-bytes", str(2**63))
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_missing_file_error_does_not_leak_path(self):
         result = self.run_cli(self.root / "PRIVATE.har", self.output)
