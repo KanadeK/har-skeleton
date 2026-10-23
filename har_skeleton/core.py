@@ -82,6 +82,16 @@ def _date(value: object) -> datetime:
         raise HarError("startedDateTime must be an ISO 8601 timestamp with a timezone") from exc
 
 
+def _phase(timings: dict, key: str) -> int | float:
+    required = key in {"send", "wait", "receive"}
+    value = _number(
+        timings.get(key, None if required else -1), f"timings.{key}", minimum=0 if required else -1
+    )
+    if value < 0 and value != -1:
+        raise HarError("unknown timing phases must use -1")
+    return value
+
+
 def _unique_object(pairs: list[tuple[str, object]]) -> dict:
     result = {}
     for key, value in pairs:
@@ -210,9 +220,7 @@ def build_skeleton(document: dict, *, max_entries: int = MAX_ENTRIES) -> tuple[d
                 "headers": [],
                 "cookies": [],
                 "content": {
-                    "size": _number(
-                        content.get("size", 0), "content.size", minimum=0, integer=True
-                    ),
+                    "size": _number(content.get("size"), "content.size", minimum=0, integer=True),
                     "mimeType": mime if mime in MIMES else "application/octet-stream",
                 },
                 "redirectURL": "",
@@ -225,7 +233,7 @@ def build_skeleton(document: dict, *, max_entries: int = MAX_ENTRIES) -> tuple[d
             },
             "cache": {},
             "timings": {
-                key: _number(timings.get(key, -1), f"timings.{key}")
+                key: _phase(timings, key)
                 for key in ("blocked", "dns", "connect", "send", "wait", "receive", "ssl")
             },
         }

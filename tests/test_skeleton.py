@@ -126,6 +126,28 @@ class SkeletonTests(unittest.TestCase):
         self.assertEqual(output["log"]["entries"], [])
         self.assertEqual(counts["origins"], 0)
 
+    def test_export_is_idempotent(self):
+        output, counts = build_skeleton(self.raw)
+        again, again_counts = build_skeleton(output)
+        self.assertEqual(output, again)
+        self.assertEqual(counts, again_counts)
+
+    def test_required_timings_and_content_size_are_not_fabricated(self):
+        for key in ["send", "wait", "receive"]:
+            raw = capture()
+            del raw["log"]["entries"][0]["timings"][key]
+            with self.assertRaises(HarError):
+                build_skeleton(raw)
+        for key, value in [("blocked", -0.5), ("send", -1)]:
+            raw = capture()
+            raw["log"]["entries"][0]["timings"][key] = value
+            with self.assertRaises(HarError):
+                build_skeleton(raw)
+        raw = capture()
+        del raw["log"]["entries"][0]["response"]["content"]["size"]
+        with self.assertRaises(HarError):
+            build_skeleton(raw)
+
     def test_mime_allowlist_discards_parameters_and_unknown_values(self):
         content = self.raw["log"]["entries"][0]["response"]["content"]
         for mime, expected in [
