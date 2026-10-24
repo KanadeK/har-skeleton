@@ -36,3 +36,8 @@ browser; this version guarantees the documented JSON shape rather than every vie
 All project code and synthetic fixtures were written for this project. No sanitizer source
 or third-party asset was copied. Python's standard library is supplied by the user's Python
 distribution. Setuptools is a build tool, Ruff is a development tool; neither is bundled.
+
+Output creation checks the directory entry with lexists before opening exclusively, so
+Windows dangling symlinks are refused. O_NOFOLLOW is also used where available, and POSIX
+output permissions default to 0600. Use a destination directory you control; this is not a
+security boundary against hostile concurrent replacement of filesystem entries.

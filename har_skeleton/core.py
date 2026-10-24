@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -266,9 +267,13 @@ def build_skeleton(document: dict, *, max_entries: int = MAX_ENTRIES) -> tuple[d
 
 
 def write_new(path: str | Path, document: dict) -> None:
-    """Exclusive creation: never overwrite an existing capture or follow an output symlink."""
+    """Refuse existing paths, including dangling links, before exclusive creation."""
     encoded = (json.dumps(document, ensure_ascii=True, allow_nan=False, indent=2) + "\n").encode(
         "utf-8"
     )
-    with Path(path).open("xb") as stream:
+    # Windows exclusive creation may follow a dangling link to a missing target.
+    if os.path.lexists(path):
+        raise FileExistsError("output already exists")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    with os.fdopen(os.open(path, flags, 0o600), "wb") as stream:
         stream.write(encoded)
