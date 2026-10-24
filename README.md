@@ -1,5 +1,7 @@
 # har-skeleton
 
+[![CI](https://github.com/KanadeK/har-skeleton/actions/workflows/ci.yml/badge.svg)](https://github.com/KanadeK/har-skeleton/actions/workflows/ci.yml)
+
 Export a local HAR capture as a performance skeleton: request timing, status, byte sizes and
 endpoint correlation survive; source URLs and HTTP content are discarded.
 
@@ -13,6 +15,8 @@ Requires Python 3.10 or newer. There are no third-party runtime dependencies or 
 From a source checkout:
 
 ```sh
+git clone https://github.com/KanadeK/har-skeleton.git
+cd har-skeleton
 python -m venv .venv
 # Linux/macOS:
 . .venv/bin/activate
